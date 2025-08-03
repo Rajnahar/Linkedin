@@ -1,0 +1,193 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// LinkedIn Content Analysis Models
+model Niche {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  keywords    String   // JSON array of keywords for this niche
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  posts       LinkedInPost[]
+  trends      Trend[]
+  hashtags    HashtagAnalysis[]
+}
+
+model LinkedInPost {
+  id              String   @id @default(cuid())
+  postId          String   @unique // Original LinkedIn post ID
+  nicheId         String
+  authorName      String
+  authorFollowers Int
+  content         String
+  likes           Int
+  comments        Int
+  shares          Int
+  hashtags        String   // JSON array of hashtags
+  mediaType       String   // text, image, video, document
+  postedAt        DateTime
+  scrapedAt       DateTime @default(now())
+  
+  niche           Niche    @relation(fields: [nicheId], references: [id])
+  engagement      Engagement?
+  
+  @@index([nicheId, postedAt])
+  @@index([likes])
+  @@index([comments])
+  @@index([shares])
+}
+
+model Engagement {
+  id           String   @id @default(cuid())
+  postId       String   @unique
+  engagementRate Float   // (likes + comments + shares) / followers * 100
+  sentiment    Float    // -1 to 1 sentiment score
+  topicCluster String   // Topic cluster from NLP
+  emotionalTone String  // inspirational, provocative, educational, etc.
+  
+  post         LinkedInPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  @@index([engagementRate])
+  @@index([sentiment])
+  @@index([topicCluster])
+}
+
+model Trend {
+  id          String   @id @default(cuid())
+  nicheId     String
+  topic       String
+  score       Float    // Trend relevance score
+  keyword     String
+  source      String   // LinkedIn, news, etc.
+  discovered  DateTime @default(now())
+  expiresAt   DateTime
+  
+  niche       Niche    @relation(fields: [nicheId], references: [id])
+  
+  @@index([nicheId, score])
+  @@index([keyword])
+}
+
+model HashtagAnalysis {
+  id            String   @id @default(cuid())
+  nicheId       String
+  hashtag       String
+  usageCount    Int
+  avgLikes      Float
+  avgComments   Float
+  avgShares     Float
+  coOccurrences String   // JSON array of hashtags that frequently co-occur
+  connectivity  Float    // Network connectivity score
+  lastAnalyzed  DateTime @default(now())
+  
+  niche         Niche    @relation(fields: [nicheId], references: [id])
+  
+  @@unique([nicheId, hashtag])
+  @@index([usageCount])
+  @@index([avgLikes])
+  @@index([connectivity])
+}
+
+model ContentTemplate {
+  id          String   @id @default(cuid())
+  niche       String
+  postType    String
+  tone        String
+  structure   String   // JSON structure: Hook → Story → Insight → CTA
+  hooks       String   // JSON array of hook templates
+  storyPrompts String // JSON array of story prompts
+  insightFormats String // JSON array of insight formats
+  ctaTemplates String // JSON array of CTA templates
+  performance  Float    // Average engagement rate for this template
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([niche, postType])
+  @@index([performance])
+}
+
+model ViralityPrediction {
+  id              String   @id @default(cuid())
+  contentHash     String   @unique
+  features        String   // JSON feature vector
+  predictedScore  Float    // Predicted engagement score
+  confidence      Float    // Model confidence (0-1)
+  actualScore     Float?   // Actual engagement score (for feedback loop)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([predictedScore])
+  @@index([confidence])
+}
+
+model OptimalTiming {
+  id          String   @id @default(cuid())
+  niche       String
+  dayOfWeek   Int      // 0-6 (Sunday-Saturday)
+  hour        Int      // 0-23
+  avgEngagement Float  // Average engagement rate
+  postCount   Int      // Number of posts analyzed
+  lastUpdated DateTime @default(now())
+  
+  @@unique([niche, dayOfWeek, hour])
+  @@index([avgEngagement])
+}
+
+model NetworkAmplifier {
+  id              String   @id @default(cuid())
+  niche           String
+  influencerName   String
+  handle          String   @unique
+  followers       Int
+  engagementRate  Float
+  relevanceScore  Float    // Relevance to niche
+  lastAnalyzed    DateTime @default(now())
+  
+  @@index([niche, followers])
+  @@index([relevanceScore])
+}
+
+model EmotionalArc {
+  id          String   @id @default(cuid())
+  contentHash String   @unique
+  valence     Float    // -1 to 1 (positive/negative)
+  arousal     Float    // 0 to 1 (calm/excited)
+  dominance   Float    // 0 to 1 (submissive/dominant)
+  peaks       String   // JSON array of emotional peak positions
+  createdAt   DateTime @default(now())
+  
+  @@index([valence])
+  @@index([arousal])
+}
